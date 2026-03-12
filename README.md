@@ -1,2 +1,3 @@
 # Ritchter-s_Predictor
 Algoritmo di intelligenza artificiale volto alla predizione dei danni di un terremoto
+DrivenData. (2019). Richter's Predictor: Modeling Earthquake Damage. Retrieved [Month Day Year] from https://www.drivendata.org/competitions/57/nepal-earthquake.
