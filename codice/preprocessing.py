@@ -1,47 +1,97 @@
 import pandas as pd
 import os
+from abc import ABC, abstractmethod
 
+# --- 1. DEFINIZIONE DELLA FACTORY ---
 
-data_dir = 'data'
+class AbstractOpener(ABC):
+    def open(self, dataframe_path: str) -> pd.DataFrame:
+        if not os.path.exists(dataframe_path):
+            raise FileNotFoundError(f"File {dataframe_path} non trovato")
+        try:
+            return self._load_data(dataframe_path)
+        except Exception as e:
+            raise RuntimeError(f"Errore durante la lettura del file {dataframe_path}: {e}")
 
+    @abstractmethod
+    def _load_data(self, path: str) -> pd.DataFrame:
+        pass
 
-import pandas as pd
-import os
+class XLSOpener(AbstractOpener):
+    def _load_data(self, path: str) -> pd.DataFrame:
+        return pd.read_excel(path)
 
-# Questo comando trova la cartella dove si trova fisicamente il file preprocessing.py
+class CSVOpener(AbstractOpener):
+    def _load_data(self, path: str) -> pd.DataFrame:
+        return pd.read_csv(path)
+
+class JSONOpener(AbstractOpener):
+    def _load_data(self, path: str) -> pd.DataFrame:
+        return pd.read_json(path)
+
+def scegli_opener(dataframe_path: str) -> AbstractOpener:
+    ext = dataframe_path.split('.')[-1].lower()
+    match ext:
+        case 'csv' | 'txt':
+            return CSVOpener()
+        case 'xls' | 'xlsx':
+            return XLSOpener()
+        case 'json':
+            return JSONOpener()
+        case _:
+            raise RuntimeError(f"Tipo di file non supportato: {ext}")
+
+# --- 2. CLASSE PREPROCESSING ---
+
+class Preprocessing:
+    """
+    Classe incaricata della pulizia e preparazione del dataset.
+    Riceve il dataframe già unito e restituisce il dataframe processato.
+    """
+    def __init__(self, dataframe: pd.DataFrame) -> None:
+        self.df = dataframe.copy()
+
+    def esegui(self) -> pd.DataFrame:
+        """
+        Punto di ingresso per tutte le operazioni di pulizia.
+        """
+        # Qui in futuro chiamerai i metodi di pulizia:
+        self.df = self.elimina_duplicati(self.df)
+        return self.df
+
+        # Metodo per eliminare duplicati
+    def elimina_duplicati(self, dati):
+        dati = dati.drop_duplicates()
+        # Riassegna gli indici dopo l'eliminazione
+        dati = dati.reset_index(drop=True)
+        return dati
+
+# --- 3. MAIN SCRIPT ---
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
-
-# Torniamo indietro di un livello (nella root del progetto) e puntiamo a 'data'
 data_dir = os.path.join(current_dir, '..', 'data')
 
-print(f"Sto cercando i dati in: {os.path.abspath(data_dir)}")
-
-# Caricamento dei file CSV
 try:
-    train_values = pd.read_csv(os.path.join(data_dir, 'train_values.csv'))
-    train_labels = pd.read_csv(os.path.join(data_dir, 'train_labels.csv'))
-    test_values = pd.read_csv(os.path.join(data_dir, 'test_values.csv'))
-    print(" File caricati con successo!")
-except FileNotFoundError as e:
-    print(f" Errore: Non trovo i file. Controlla che la cartella 'data' sia corretta.")
-    print(e)
-    exit() # Ferma lo script se non trova i file
+    path_values = os.path.join(data_dir, 'train_values.csv')
+    path_labels = os.path.join(data_dir, 'train_labels.csv')
 
-# Ora il merge funzionerà perché i nomi sono definiti
-train_full = train_values.merge(train_labels, on='building_id')
+    # CARICAMENTO
+    print("Caricamento file in corso...")
+    train_values = scegli_opener(path_values).open(path_values)
+    train_labels = scegli_opener(path_labels).open(path_labels)
 
-# 4. Visualizzazione di controllo
-print("\n--- INFO DATASET DI TRAINING ---")
-print(f"Numero totale di righe (edifici): {train_full.shape[0]}")
-print(f"Numero totale di colonne (feature): {train_full.shape[1]}")
+    # MERGE
+    train_full = train_values.merge(train_labels, on='building_id')
+    print(f"File caricati e uniti. Righe totali: {train_full.shape[0]}")
 
-print("\n--- PRIME RIGHE DEL TRAINING SET ---")
-print(train_full.head())
+    # PREPROCESSING
+    preprocessor = Preprocessing(train_full)
+    df_processato = preprocessor.esegui()
 
-print("\n--- DISTRIBUZIONE DEL TARGET (damage_grade) ---")
-# Vediamo quanti edifici hanno danno 1, 2 o 3
-print(train_full['damage_grade'].value_counts().sort_index())
+    print("\n--- RESOCONTO FINALE ---")
+    print(f"Dimensioni Righe: {df_processato.shape[0]}")
+    print(f"Dimensioni Colonne:  {df_processato.shape[1]}")
+    print(f"Valori mancanti residui: {df_processato.isnull().sum().sum()}")
 
-# 5. Verifica valori mancanti
-print("\n--- VALORI MANCANTI ---")
-print(train_full.isnull().sum().sum())
+except Exception as e:
+    print(f"Errore: {e}")
