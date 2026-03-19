@@ -58,8 +58,13 @@ class Preprocessing:
         """
         print("\nAvvio Preprocessing...")
         self.elimina_duplicati()
-        self.gestisci_valori_mancanti()
+        self.elimina_classnull()
+        self.elimina_colonne_nulle()
         self.rimuovi_outlier_strutturali()
+
+        self.elimina_record_null_percentuale()
+        self.gestisci_valori_mancanti()
+
         return self.df
 
     # Metodo per eliminare duplicati
@@ -186,6 +191,51 @@ class Preprocessing:
 
         print("\nPreprocessing completato!")
         print(self.df.head())
+
+    def elimina_classnull(self):
+        target_col = 'damage_grade'
+        righe_originali = self.df
+        # Rimuove le righe dove il valore nella colonna 'damage_grade' è nullo (NaN)
+        self.df = self.df.dropna(subset=[target_col]).reset_index(drop=True)
+        righe_dopo_aver_tolto_i_null = len(self.df)
+        assert righe_dopo_aver_tolto_i_null <= righe_originali, "ERRORE: le righe dopo la pulizia sono aumentate!"
+
+    def elimina_record_null_percentuale(self, soglia_percentuale=0.30):
+        """
+        Rimuove i record che hanno una percentuale di valori nulli superiore alla soglia.
+        soglia_percentuale=0.30.
+        """
+        n_colonne = len(self.df.columns)
+        min_valori_validi = int(n_colonne * (1 - soglia_percentuale))
+
+        dati_puliti = self.df.dropna(thresh=min_valori_validi).reset_index(drop=True)
+
+        righe_eliminate = len(dati) - len(dati_puliti)
+        print(f"Record eliminati per troppi null sulla riga (Soglia {soglia_percentuale * 100}%): {righe_eliminate}")
+
+    def elimina_colonne_nulle(self,soglia_percentuale=0.4):
+        """
+        Rimuove le feature che superano la percentuale di valori nulli indicata.
+        Soglia 0.4 = Elimina se mancano più del 40% dei dati.
+        """
+        #  Calcolo del numero massimo di nulli consentiti per colonna
+        n_righe_totali = len(self.df)
+        limite_nulli = n_righe_totali * soglia_percentuale
+
+        # Identificazione delle colonne che superano il limite
+        serie_nulli = self.df.isnull().sum()
+        colonne_da_eliminare = serie_nulli[serie_nulli > limite_nulli].index.tolist()
+
+        # Log dei risultati (utile per la tua relazione FIA)
+        if colonne_da_eliminare:
+            print(
+                f"Attenzione: Eliminate {len(colonne_da_eliminare)} feature (> {soglia_percentuale * 100}% nulli).")
+            print(f"Feature rimosse: {colonne_da_eliminare}")
+            # Restituiamo il dataframe senza quelle colonne
+            self.df.drop(columns=colonne_da_eliminare)
+        else:
+            print(f"Controllo Qualità: Tutte le feature rispettano la soglia del {soglia_percentuale * 100}%.")
+
 
 
 # --- 3. MAIN SCRIPT ---
