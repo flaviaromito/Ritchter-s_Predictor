@@ -58,23 +58,24 @@ class Preprocessing:
         """
         print("\nAvvio Preprocessing...")
         self.elimina_duplicati()
-        self.rimuovi_outlier_strutturali()
         self.gestisci_valori_mancanti()
+        self.rimuovi_outlier_strutturali()
         return self.df
 
     # Metodo per eliminare duplicati
     def elimina_duplicati(self):
-        dat = self.df.drop_duplicates()
+        self.df = self.df.drop_duplicates()
         # Riassegna gli indici dopo l'eliminazione
-        self.df = dat.reset_index(drop=True)
+        self.df = self.df.reset_index(drop=True)
 
     def gestisci_valori_mancanti(self):
         """Gestione interattiva dei valori nulli (NaN)."""
         n = self.df.isnull().sum().sum()
+        print(f"\nSono stati trovati {n} valori mancanti.")
         dat = self.df.copy()
 
         while n > 0:
-            print("\nDato che sono stati trovati valori mancanti, scegli un'operazione di pulizia:")
+            print(f"\nDato che sono stati trovati {n} valori mancanti, scegli un'operazione di pulizia:")
             print("1. Eliminazione del record")
             print("2. Imputazione univariata (media per ogni colonna numerica)")
             print("3. Imputazione multivariata (KNN Imputer)")
@@ -213,6 +214,8 @@ try:
     print(f"Dimensioni Colonne:  {df_processato.shape[1]}")
     print(f"Valori mancanti residui: {df_processato.isnull().sum().sum()}")
 
-except Exception as e:
-    print(f"Errore: {e}")
+except Exception as ex:
+    print(f"Errore: {ex}")
 
+#19 marzo righe totali e 0 null
+#File caricati e uniti. Righe totali: 260601
