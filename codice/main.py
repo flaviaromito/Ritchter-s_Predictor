@@ -30,8 +30,8 @@ if __name__ == "__main__":
 
 
         # PREPROCESSING TRAIN SET
-        preprocessor = Preprocessing(dati_train)
-        df_train_processato = preprocessor.esegui(is_train=True)
+        preprocessor = Preprocessing(dati_train, is_train=True)
+        df_train_processato = preprocessor.esegui()
 
         print("\n--- RESOCONTO FINALE TRAINING ---")
         print(f"Dimensioni Righe: {df_train_processato.shape[0]}")
@@ -53,8 +53,9 @@ if __name__ == "__main__":
             test_values = scegli_opener(path_test_values).open(path_test_values)
 
             # Esecuzione preprocessing sul test set usando lo scaler del train
-            preprocessor_test = Preprocessing(test_values, scaler=preprocessor.scaler, lista_colonne=preprocessor.lista_colonne)
-            df_test_processato = preprocessor_test.esegui(is_train=False)
+            preprocessor_test = Preprocessing(test_values, scaler=preprocessor.scaler,
+                                              lista_colonne=preprocessor.lista_colonne, is_train=False)
+            df_test_processato = preprocessor_test.esegui()
 
             print("\n--- RESOCONTO FINALE TEST ---")
             print(f"Dimensioni Righe: {df_test_processato.shape[0]}")

@@ -49,20 +49,22 @@ class Preprocessing:
     Classe incaricata della pulizia e preparazione del dataset.
     Riceve il dataframe già unito e restituisce il dataframe processato.
     """
-    def __init__(self, dataframe: pd.DataFrame, scaler=None, lista_colonne=None):
+    def __init__(self, dataframe: pd.DataFrame, scaler=None, lista_colonne=None, is_train = True):
         self.df = dataframe.copy()
         # Permette di passare uno scaler pre-fittato (utile quando si processerà il test set)
         self.scaler = scaler if scaler else StandardScaler()
         self.lista_colonne = lista_colonne if lista_colonne else []
+        self.is_train = is_train
 
-    def esegui(self, is_train=True) -> pd.DataFrame:
-        print(f"\nAvvio Preprocessing ({'Train' if is_train else 'Test'})...")
+
+    def esegui(self) -> pd.DataFrame:
+        print(f"\nAvvio Preprocessing ({'Train' if self.is_train else 'Test'})...")
 
         self.elimina_duplicati()
         self.pulisci_variabili()
         self.elimina_classnull()
 
-        if is_train:
+        if self.is_train:
             self.elimina_record_null_percentuale()
             self.elimina_colonne_nulle()
             self.gestisci_valori_mancanti()
@@ -76,7 +78,7 @@ class Preprocessing:
 
             self.df = self.df.reindex(columns=self.lista_colonne, fill_value=0)
 
-        self.standardizza(is_train)
+        self.standardizza(self.is_train)
 
         return self.df
 
@@ -85,6 +87,43 @@ class Preprocessing:
         self.df = self.df.drop_duplicates()
         # Riassegna gli indici dopo l'eliminazione
         self.df = self.df.reset_index(drop=True)
+
+
+    def gestisci_valori_mancanti_rimozione(self, da):
+        da.dropna(inplace=True)
+        da.reset_index(drop=True, inplace=True)
+        print("Righe con valori mancanti eliminate con successo!")
+        return da
+
+
+    def gestisci_valori_mancanti_media(self, da):
+        # Imputazione con la media su tutte le colonne numeriche che hanno NaN
+        numeric_cols_with_nan = da.select_dtypes(include='number').columns[
+            da.select_dtypes(include='number').isnull().any()]
+        if self.is_train:
+            for col in numeric_cols_with_nan:
+                col_mean = da[col].mean()
+                da[col] = da[col].fillna(col_mean)
+            print(f"Imputazione univariata eseguita su colonne di train: {list(numeric_cols_with_nan)}")
+
+        else:
+            i =0
+            for col in numeric_cols_with_nan:
+                col_mean = self.scaler.mean_[i]
+                da[col] = da[col].fillna(col_mean)
+                i = +1
+            print(f"Imputazione univariata eseguita su colonne di test: {list(numeric_cols_with_nan)}")
+
+        return da
+
+
+    def gestisci_valori_mancanti_KNN(self, da):
+        numeric_cols = da.select_dtypes(include='number').columns
+        imputer = KNNImputer(n_neighbors=5)
+        da[numeric_cols] = imputer.fit_transform(da[numeric_cols])
+        print("Imputazione multivariata (KNN) eseguita con successo!")
+        return da
+
 
     def gestisci_valori_mancanti(self):
         """Gestione interattiva dei valori nulli (NaN)."""
@@ -112,25 +151,16 @@ class Preprocessing:
                 continue
 
             if choice == 1:
-                dat.dropna(inplace=True)
-                dat.reset_index(drop=True, inplace=True)
-                print("Righe con valori mancanti eliminate con successo!")
+                dat = self.gestisci_valori_mancanti_rimozione(dat)
+
 
             elif choice == 2:
-                # Imputazione con la media su tutte le colonne numeriche che hanno NaN
-                numeric_cols_with_nan = dat.select_dtypes(include='number').columns[
-                    dat.select_dtypes(include='number').isnull().any()
-                ]
-                for col in numeric_cols_with_nan:
-                    col_mean = dat[col].mean()
-                    dat[col] = dat[col].fillna(col_mean)
-                print(f"Imputazione univariata eseguita su colonne: {list(numeric_cols_with_nan)}")
+                dat = self.gestisci_valori_mancanti_media(dat)
+
 
             elif choice == 3:
-                numeric_cols = dat.select_dtypes(include='number').columns
-                imputer = KNNImputer(n_neighbors=5)
-                dat[numeric_cols] = imputer.fit_transform(dat[numeric_cols])
-                print("Imputazione multivariata (KNN) eseguita con successo!")
+                dat = self.gestisci_valori_mancanti_KNN(dat)
+
 
             elif choice == 4:
                 print("Uscita senza modifiche.")
@@ -320,6 +350,7 @@ class Preprocessing:
         if is_train:
             # Per i dati di Train calcoliamo (fit) e applichiamo (transform) la standardizzazione
             self.df[colonne_da_standardizzare] = self.scaler.fit_transform(self.df[colonne_da_standardizzare])
+            print(f"Scaler media di train : {self.scaler.mean_}")
             print(f"Standardizzazione calcolata e applicata (fit_transform) su: {colonne_da_standardizzare}")
         else:
             # Per i dati di Test applichiamo (transform) le metriche calcolate precedentemente sul Train per evitare Data Leakage
